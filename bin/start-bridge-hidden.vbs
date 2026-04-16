@@ -1,2 +1,2 @@
 Set WshShell = CreateObject("WScript.Shell")
-WshShell.Run "powershell -ExecutionPolicy Bypass -File C:\OpenClawBridge\bin\start-bridge.ps1 -Fresh", 0, False
+WshShell.Run "powershell -ExecutionPolicy Bypass -File C:\OpenClawBridge\bin\start-bridge.ps1 -BridgeRoot C:\OpenClawBridge -Fresh", 0, False

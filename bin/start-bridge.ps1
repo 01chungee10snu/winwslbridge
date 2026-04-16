@@ -68,7 +68,7 @@ if ($Fresh) {
 $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 $stdoutLog = Join-Path $logDir ("bridge-stdout-" + $stamp + ".log")
 $stderrLog = Join-Path $logDir ("bridge-stderr-" + $stamp + ".log")
-$proc = Start-Process powershell -ArgumentList @('-ExecutionPolicy','Bypass','-File',$scriptPath,'-BridgeRoot',$BridgeRoot) -RedirectStandardOutput $stdoutLog -RedirectStandardError $stderrLog -WindowStyle Hidden -PassThru
+$proc = Start-Process powershell -ArgumentList @('-ExecutionPolicy','Bypass','-File',$scriptPath,'-BridgeRoot',$BridgeRoot) -RedirectStandardOutput $stdoutLog -RedirectStandardError $stderrLog -WindowStyle Minimized -PassThru
 $proc.Id | Set-Content -Path $pidPath -Encoding ascii
 Start-Sleep -Milliseconds 800
 $alive = Get-Process -Id $proc.Id -ErrorAction SilentlyContinue

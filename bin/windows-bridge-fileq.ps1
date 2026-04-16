@@ -30,8 +30,8 @@ function Write-ResponseFile($Path, $Response) {
   $tmpPath = $Path + '.tmp'
   $json = $Response | ConvertTo-Json -Depth 8
   [System.IO.File]::WriteAllText($tmpPath, $json, [System.Text.Encoding]::UTF8)
-  if (Test-Path $Path) { Remove-Item $Path -Force -ErrorAction SilentlyContinue }
-  [System.IO.File]::Move($tmpPath, $Path)
+  [System.IO.File]::Copy($tmpPath, $Path, $true)
+  Remove-Item $tmpPath -Force -ErrorAction SilentlyContinue
 }
 
 function Get-RequestContext($RequestFile) {
@@ -244,7 +244,12 @@ while ($true) {
         $response = New-Response $true 'window.active' (Get-ActiveWindow) $null $requestId
       }
       if (($null -eq $response) -and $actionLower -eq 'screen.capture') {
-        $response = New-Response $true 'screen.capture' (Capture-Screen -BridgeRoot $BridgeRoot) $null $requestId
+        $cap = Capture-Screen -BridgeRoot $BridgeRoot
+        if ($cap.captureError) {
+          $response = New-Response $false 'screen.capture' $null $cap.captureError $requestId
+        } else {
+          $response = New-Response $true 'screen.capture' $cap $null $requestId
+        }
       }
       if (($null -eq $response) -and $actionLower -eq 'window.focus') {
         $titleContains = [string]$body.args.titleContains
