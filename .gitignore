@@ -1,0 +1,6 @@
+requests/
+responses/
+logs/
+tmp/
+*.pid
+*.tmp
