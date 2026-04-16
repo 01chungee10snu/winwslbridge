@@ -199,16 +199,20 @@ function Capture-Screen($BridgeRoot) {
 
     $fileName = 'capture-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '.png'
     $outPath = Join-Path (Join-Path $BridgeRoot 'tmp') $fileName
-    $bitmap.Save($outPath, [System.Drawing.Imaging.ImageFormat]::Png)
+    try { $bitmap.Save($outPath, [System.Drawing.Imaging.ImageFormat]::Png) } catch {}
+    try { $graphics.Dispose() } catch {}
+    try { $bitmap.Dispose() } catch {}
 
-    $graphics.Dispose()
-    $bitmap.Dispose()
-
+    if (Test-Path $outPath) {
+      return [ordered]@{
+        path = $outPath
+        fileName = $fileName
+        width = $bounds.Width
+        height = $bounds.Height
+      }
+    }
     return [ordered]@{
-      path = $outPath
-      fileName = $fileName
-      width = $bounds.Width
-      height = $bounds.Height
+      captureError = 'Save completed but file not found'
     }
   }
   catch {
