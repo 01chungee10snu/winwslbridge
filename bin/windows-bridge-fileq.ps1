@@ -1,5 +1,6 @@
 param(
-  [string]$BridgeRoot = 'C:\OpenClawBridge'
+  [string]$BridgeRoot = 'C:\OpenClawBridge',
+  [int]$IdleTimeoutSeconds = 60
 )
 
 $ErrorActionPreference = 'Stop'
@@ -27,19 +28,31 @@ function New-Response($ok, $action, $result, $error, $requestId) {
 
 function Write-ResponseFile($Path, $Response) {
   $tmpPath = $Path + '.tmp'
-  ($Response | ConvertTo-Json -Depth 8) | Set-Content -Path $tmpPath -Encoding UTF8
-  Move-Item -Path $tmpPath -Destination $Path -Force
+  $json = $Response | ConvertTo-Json -Depth 8
+  [System.IO.File]::WriteAllText($tmpPath, $json, [System.Text.Encoding]::UTF8)
+  if (Test-Path $Path) { Remove-Item $Path -Force -ErrorAction SilentlyContinue }
+  [System.IO.File]::Move($tmpPath, $Path)
 }
 
 function Get-RequestContext($RequestFile) {
   $reqPath = $RequestFile.FullName
   $reqName = $RequestFile.Name
   $fallbackId = [IO.Path]::GetFileNameWithoutExtension($reqName)
-  $bytes = [System.IO.File]::ReadAllBytes($reqPath)
-  $raw = [System.Text.Encoding]::UTF8.GetString($bytes)
-  if ($raw.Length -gt 0 -and $raw[0] -eq [char]0xFEFF) {
-    $raw = $raw.Substring(1)
+  $raw = $null
+  $readRetries = 0
+  while ($readRetries -lt 3) {
+    try {
+      $bytes = [System.IO.File]::ReadAllBytes($reqPath)
+      $raw = [System.Text.Encoding]::UTF8.GetString($bytes)
+      if ($raw.Length -gt 0 -and $raw[0] -eq [char]0xFEFF) { $raw = $raw.Substring(1) }
+      break
+    }
+    catch {
+      $readRetries++
+      Start-Sleep -Milliseconds 100
+    }
   }
+  if ($null -eq $raw) { throw $_.Exception }
   $body = $raw | ConvertFrom-Json -ErrorAction Stop
   $requestId = if ([string]::IsNullOrWhiteSpace([string]$body.id)) { $fallbackId } else { [string]$body.id }
   return [ordered]@{
@@ -205,7 +218,8 @@ function Capture-Screen($BridgeRoot) {
   }
 }
 
-Write-Host "OpenClaw file-queue bridge watching $reqDir"
+Write-Host "OpenClaw file-queue bridge watching $reqDir (idle timeout: ${IdleTimeoutSeconds}s)"
+$lastActivity = Get-Date
 while ($true) {
   $requests = Get-ChildItem -Path $reqDir -Filter *.json -File | Sort-Object LastWriteTime
   foreach ($req in $requests) {
@@ -262,6 +276,13 @@ while ($true) {
         Remove-Item -LiteralPath $req.FullName -Force -ErrorAction SilentlyContinue
       }
     }
+  }
+  if ($requests.Count -gt 0) {
+    $lastActivity = Get-Date
+  }
+  elseif (((Get-Date) - $lastActivity).TotalSeconds -ge $IdleTimeoutSeconds) {
+    Write-Host "Idle timeout reached ($IdleTimeoutSeconds seconds). Exiting."
+    break
   }
   Start-Sleep -Milliseconds 250
 }
